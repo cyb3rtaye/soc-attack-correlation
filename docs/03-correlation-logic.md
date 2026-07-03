@@ -2,112 +2,56 @@
 
 ## Objective
 
-To define how individual events are linked together to form a meaningful detection narrative.
+Define the conditions that would link the three process events into a higher-confidence investigation lead.
 
-Rather than analysing alerts in isolation, this phase focuses on identifying relationships between events based on context, timing, and behaviour.
+## Required Conditions
 
----
+### Same Endpoint
 
-## What is Correlation
+All events must originate from the same Windows host or Wazuh agent.
 
-Correlation is the process of connecting multiple events to determine whether they represent a sequence of related activity.
+### Time Proximity
 
-In a SOC environment, correlation allows analysts to move from:
+The events should occur within a short window, such as five minutes. The final value would require tuning against normal administrative activity.
 
-Single alerts → Behavioural patterns → Attack understanding
+### Process and Command Context
 
----
+The sequence should contain:
 
-## Correlation Strategy
+- `powershell.exe` execution
+- `cmd.exe` as the parent of `powershell.exe`
+- `certutil.exe` with URL-related command-line arguments
 
-The correlation approach in this project is based on four key factors:
+### Logical Order
 
-- Host correlation (same system)
-- Time correlation (events occurring close together)
-- Process relationship (parent-child links)
-- Behavioural progression (logical attack sequence)
+The events should follow a plausible progression from command execution to native-tool use.
 
----
+## Candidate Correlation
 
-## Correlation Conditions
+```text
+WHEN PowerShell execution occurs
+AND cmd.exe launches powershell.exe
+AND certutil.exe contains a URL argument
+ON the same endpoint
+WITHIN five minutes
+THEN create a correlation lead for analyst review
+```
 
-### 1. Same Host
+## Confidence Model
 
-All events originate from the same endpoint.
+| Observation | Indicative confidence |
+|---|---|
+| PowerShell alone | Low |
+| Shell-to-shell process chain | Medium |
+| URL-based certutil use | Medium to high, depending on context |
+| All three on one host in a short window | Higher-priority investigation lead |
 
----
+## Tuning Considerations
 
-### 2. Time Proximity
+- approved administration scripts
+- software deployment activity
+- known service accounts
+- expected download domains
+- repeated events from the same user or host
 
-Events occur within a short timeframe (for example, within a few minutes).
-
----
-
-### 3. Process Context
-
-Events show a relationship between processes:
-
-- cmd.exe launching powershell.exe
-- powershell execution preceding certutil usage
-
----
-
-### 4. Behavioural Sequence
-
-The order of activity follows a logical progression:
-
-1. Execution (PowerShell)
-2. Process chaining (cmd → PowerShell)
-3. Tool usage (certutil)
-
----
-
-## Example Correlation Flow
-
-PowerShell execution  
-→ Process chain detected  
-→ certutil usage observed  
-
-Individually:
-- Low or medium value events
-
-Combined:
-- Strong behavioural indicator
-
----
-
-## Detection Logic Concept
-
-Instead of triggering alerts on single events, the goal is to identify:
-
-Multiple related events on the same host within a short time window
-
----
-
-## Analyst Interpretation
-
-Correlation enables analysts to:
-
-- understand attacker intent
-- identify escalation of behaviour
-- prioritise investigations
-- reduce noise from isolated alerts
-
----
-
-## Detection Confidence Levels
-
-### Low Confidence
-Single event (e.g. PowerShell execution)
-
-### Medium Confidence
-Process chain behaviour
-
-### High Confidence
-Multiple correlated behaviours within a short timeframe
-
----
-
-## Outcome
-
-This phase establishes the logic required to link events together into a meaningful detection narrative.
+The correlation should support investigation, not automatically declare an incident.
